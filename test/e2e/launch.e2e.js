@@ -102,7 +102,7 @@ describe('Application launch', function () {
     await ipfsd.stop()
   })
 
-  it('applies config migration to existing config', async function () {
+  it('applies config migration (MDNS.enabled)', async function () {
     // create preexisting, initialized repo and config
     const { repoPath, configPath, peerId: expectedId } = await makeRepository({ start: false })
 
@@ -123,6 +123,73 @@ describe('Application launch', function () {
     // ensure app has migrated config
     expect(config.Discovery.MDNS.enabled).to.be.undefined()
     expect(config.Discovery.MDNS.Enabled).to.be.true()
+  })
+
+  it('applies config migration (Web UI CORS 1)', async function () {
+    // create preexisting, initialized repo and config
+    const { repoPath, configPath, peerId: expectedId } = await makeRepository({ start: false })
+
+    const initConfig = fs.readJsonSync(configPath)
+    initConfig.API.HTTPHeaders['Access-Control-Allow-Origin'] = ['https://127.0.0.1:4040']
+    fs.writeJsonSync(configPath, initConfig, { spaces: 2 })
+
+    const { app } = await startApp({ repoPath })
+    expect(app.isRunning()).to.be.true()
+
+    const { peerId } = await daemonReady(app)
+    expect(peerId).to.be.equal(expectedId)
+
+    const config = fs.readJsonSync(configPath)
+    // ensure app has migrated config
+    expect(config.API.HTTPHeaders['Access-Control-Allow-Origin']).to.deep.equal([
+      'https://127.0.0.1:4040',
+      'https://webui.ipfs.io',
+      'http://webui.ipfs.io.ipns.localhost:0' // ipfsd 'test' profile uses '/ip4/127.0.0.1/tcp/0'
+    ])
+  })
+
+  it('applies config migration (Web UI CORS 2)', async function () {
+    // create preexisting, initialized repo and config
+    const { repoPath, configPath, peerId: expectedId } = await makeRepository({ start: false })
+
+    const initConfig = fs.readJsonSync(configPath)
+    initConfig.API.HTTPHeaders['Access-Control-Allow-Origin'] = []
+    fs.writeJsonSync(configPath, initConfig, { spaces: 2 })
+
+    const { app } = await startApp({ repoPath })
+    expect(app.isRunning()).to.be.true()
+
+    const { peerId } = await daemonReady(app)
+    expect(peerId).to.be.equal(expectedId)
+
+    const config = fs.readJsonSync(configPath)
+    // ensure app has migrated config
+    expect(config.API.HTTPHeaders['Access-Control-Allow-Origin']).to.deep.equal([
+      'https://webui.ipfs.io',
+      'http://webui.ipfs.io.ipns.localhost:0' // ipfsd 'test' profile uses '/ip4/127.0.0.1/tcp/0'
+    ])
+  })
+
+  it('applies config migration (Web UI CORS 3)', async function () {
+    // create preexisting, initialized repo and config
+    const { repoPath, configPath, peerId: expectedId } = await makeRepository({ start: false })
+
+    const initConfig = fs.readJsonSync(configPath)
+    delete initConfig.API.HTTPHeaders
+    fs.writeJsonSync(configPath, initConfig, { spaces: 2 })
+
+    const { app } = await startApp({ repoPath })
+    expect(app.isRunning()).to.be.true()
+
+    const { peerId } = await daemonReady(app)
+    expect(peerId).to.be.equal(expectedId)
+
+    const config = fs.readJsonSync(configPath)
+    // ensure app has migrated config
+    expect(config.API.HTTPHeaders['Access-Control-Allow-Origin']).to.deep.equal([
+      'https://webui.ipfs.io',
+      'http://webui.ipfs.io.ipns.localhost:0' // ipfsd 'test' profile uses '/ip4/127.0.0.1/tcp/0'
+    ])
   })
 
   it('starts with repository with "IPFS_PATH/api" file and no daemon running', async function () {
